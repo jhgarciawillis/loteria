@@ -91,11 +91,11 @@ class GameState:
     def __init__(self):
         self.game = LoteriaGame()
         self.timer = 15
-        self.auto_call = True
         self.timer_start = None
         self.is_paused = False
         self.time_remaining = None
         self.is_running = False
+        self.last_update = time.time()
 
     def start_new_game(self):
         self.game.start_new_game()
@@ -103,6 +103,7 @@ class GameState:
         self.is_paused = False
         self.time_remaining = None
         self.is_running = False
+        self.last_update = time.time()
 
     def start_game(self):
         if not self.is_running:
@@ -118,11 +119,15 @@ class GameState:
             self.is_running = False
         return card
 
-    def should_call_next(self):
-        if self.is_paused or not self.is_running or self.timer_start is None:
-            return False
-        elapsed = time.time() - self.timer_start
-        return elapsed >= self.timer
+    def update(self):
+        current_time = time.time()
+        if self.is_running and not self.is_paused:
+            if self.timer_start is not None:
+                elapsed = current_time - self.timer_start
+                self.time_remaining = max(0, self.timer - elapsed)
+                if self.time_remaining <= 0:
+                    self.call_next_card()
+        self.last_update = current_time
 
     def pause_game(self):
         if not self.is_paused and self.timer_start is not None:
@@ -138,13 +143,14 @@ def initialize_session_state():
     if 'game_state' not in st.session_state:
         st.session_state.game_state = GameState()
     else:
-        # Ensure all attributes exist in case of old session state
         if not hasattr(st.session_state.game_state, 'is_paused'):
             st.session_state.game_state.is_paused = False
         if not hasattr(st.session_state.game_state, 'time_remaining'):
             st.session_state.game_state.time_remaining = None
         if not hasattr(st.session_state.game_state, 'is_running'):
             st.session_state.game_state.is_running = False
+        if not hasattr(st.session_state.game_state, 'last_update'):
+            st.session_state.game_state.last_update = time.time()
 
 def render_game_controls():
     game_state = st.session_state.game_state
@@ -162,7 +168,7 @@ def render_game_controls():
             if st.button("▶️ Continuar"):
                 game_state.resume_game()
                 st.rerun()
-        else:
+        elif game_state.is_running:
             if st.button("⏸️ Pausar"):
                 game_state.pause_game()
                 st.rerun()
@@ -174,7 +180,12 @@ def render_game_controls():
                 st.rerun()
 
     st.subheader("Configuración")
-    game_state.timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=game_state.timer, step=1)
+    new_timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=game_state.timer, step=1)
+    if new_timer != game_state.timer:
+        game_state.timer = new_timer
+        if game_state.is_running and not game_state.is_paused:
+            game_state.timer_start = time.time()
+            game_state.time_remaining = new_timer
 
 def render_current_card():
     game_state = st.session_state.game_state
@@ -184,15 +195,9 @@ def render_current_card():
         card = game_state.game.current_card
         st.image(card.image_path, caption=card.name, use_column_width=True)
 
-        if game_state.timer_start is not None:
-            if game_state.is_paused:
-                remaining = game_state.time_remaining
-            else:
-                elapsed = time.time() - game_state.timer_start
-                remaining = max(0, game_state.timer - elapsed)
-            
-            st.progress(remaining / game_state.timer)
-            st.text(f"Tiempo restante: {remaining:.1f}s")
+        if game_state.time_remaining is not None:
+            st.progress(game_state.time_remaining / game_state.timer)
+            st.text(f"Tiempo restante: {game_state.time_remaining:.1f}s")
 
 def render_called_cards():
     game_state = st.session_state.game_state
@@ -216,9 +221,11 @@ def main():
         render_current_card()
         render_called_cards()
 
-    # Check for auto-call
-    if st.session_state.game_state.should_call_next():
-        st.session_state.game_state.call_next_card()
+    # Update game state
+    st.session_state.game_state.update()
+
+    # Rerun the app if the game state has changed
+    if time.time() - st.session_state.game_state.last_update > 0.1:
         st.rerun()
 
 if __name__ == "__main__":
