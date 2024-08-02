@@ -128,6 +128,12 @@ class GameState:
 def initialize_session_state():
     if 'game_state' not in st.session_state:
         st.session_state.game_state = GameState()
+    else:
+        # Ensure all attributes exist in case of old session state
+        if not hasattr(st.session_state.game_state, 'is_paused'):
+            st.session_state.game_state.is_paused = False
+        if not hasattr(st.session_state.game_state, 'time_remaining'):
+            st.session_state.game_state.time_remaining = None
 
 def render_game_controls():
     game_state = st.session_state.game_state
