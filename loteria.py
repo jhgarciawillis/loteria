@@ -4,7 +4,6 @@ from PIL import Image
 import os
 import pandas as pd
 import time
-import base64
 
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
@@ -93,6 +92,10 @@ def main():
         st.session_state.timer = 15
     if 'auto_call' not in st.session_state:
         st.session_state.auto_call = False
+    if 'current_card' not in st.session_state:
+        st.session_state.current_card = None
+    if 'timer_start' not in st.session_state:
+        st.session_state.timer_start = None
 
     game = st.session_state.game
 
@@ -107,7 +110,7 @@ def main():
             st.rerun()
 
         st.subheader("Configuración")
-        st.session_state.timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=st.session_state.timer, step=5)
+        st.session_state.timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=st.session_state.timer, step=1)
         st.session_state.auto_call = st.checkbox("Llamada automática", value=st.session_state.auto_call)
 
         if st.button("🎴 Llamar Siguiente Carta"):
