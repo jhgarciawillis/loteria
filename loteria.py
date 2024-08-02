@@ -5,20 +5,25 @@ import os
 import pandas as pd
 import time
 
-# Set page configuration
+# Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
 
-# Set Spanish language
+# Estilos CSS para mejorar la apariencia y la compatibilidad móvil
 st.markdown("""
 <style>
     .stButton>button {
-        font-size: 20px;
+        font-size: 18px;
         font-weight: bold;
         height: 3em;
         width: 100%;
     }
     .stImage {
-        margin-bottom: 20px;
+        margin-bottom: 10px;
+    }
+    @media (max-width: 600px) {
+        .stButton>button {
+            font-size: 14px;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -73,6 +78,8 @@ def main():
         st.session_state.game = LoteriaGame()
     if 'timer' not in st.session_state:
         st.session_state.timer = 15
+    if 'auto_call' not in st.session_state:
+        st.session_state.auto_call = False
 
     game = st.session_state.game
 
@@ -82,6 +89,8 @@ def main():
         st.subheader("Controles del Juego")
         if st.button("🔄 Iniciar Nuevo Juego"):
             game.start_new_game()
+            st.session_state.current_card = None
+            st.session_state.timer_start = None
             st.rerun()
 
         st.subheader("Temporizador")
@@ -95,46 +104,52 @@ def main():
             if st.button("+"):
                 st.session_state.timer = min(60, st.session_state.timer + 5)
 
+        st.session_state.auto_call = st.checkbox("Llamada automática", value=st.session_state.auto_call)
+
         if st.button("🎴 Llamar Siguiente Carta"):
-            card = game.call_next_card()
-            if card:
-                st.session_state.current_card = card
-                st.session_state.timer_start = time.time()
-                st.rerun()
-            else:
-                st.write("¡Todas las cartas han sido llamadas!")
+            call_next_card()
 
     with col2:
         st.subheader("Carta Actual")
-        if hasattr(st.session_state, 'current_card'):
+        if st.session_state.current_card:
             card = st.session_state.current_card
             col_image, col_timer = st.columns([3,1])
             with col_image:
-                st.image(card.image_path, caption=card.name, width=300)
+                st.image(card.image_path, caption=card.name, use_column_width=True)
             with col_timer:
-                if hasattr(st.session_state, 'timer_start'):
+                if st.session_state.timer_start:
                     elapsed = time.time() - st.session_state.timer_start
                     remaining = max(0, st.session_state.timer - elapsed)
                     st.metric("Tiempo", f"{remaining:.1f}s")
                     if remaining > 0:
-                        st.empty().progress(remaining / st.session_state.timer)
+                        st.progress(remaining / st.session_state.timer)
                     else:
                         st.warning("¡Tiempo terminado!")
+                        if st.session_state.auto_call:
+                            call_next_card()
 
         st.subheader("Cartas Llamadas")
-        called_cards_grid = st.empty()
+        display_called_cards()
 
-    # Display called cards in a grid
+def call_next_card():
+    card = st.session_state.game.call_next_card()
+    if card:
+        st.session_state.current_card = card
+        st.session_state.timer_start = time.time()
+        st.rerun()
+    else:
+        st.write("¡Todas las cartas han sido llamadas!")
+
+def display_called_cards():
     cols = 4
-    rows = (len(game.called_cards) + cols - 1) // cols
-    grid = [game.called_cards[i:i+cols] for i in range(0, len(game.called_cards), cols)]
+    rows = (len(st.session_state.game.called_cards) + cols - 1) // cols
+    grid = [st.session_state.game.called_cards[i:i+cols] for i in range(0, len(st.session_state.game.called_cards), cols)]
 
-    with called_cards_grid.container():
-        for row in grid:
-            cols = st.columns(4)
-            for i, card in enumerate(row):
-                with cols[i]:
-                    st.image(card.image_path, caption=card.name, width=100)
+    for row in grid:
+        cols = st.columns(4)
+        for i, card in enumerate(row):
+            with cols[i]:
+                st.image(card.image_path, caption=card.name, use_column_width=True)
 
 if __name__ == "__main__":
     main()
