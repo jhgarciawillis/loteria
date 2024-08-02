@@ -6,6 +6,7 @@ import pandas as pd
 import time
 from gtts import gTTS
 import base64
+import io
 
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
@@ -120,8 +121,10 @@ class TTSEngine:
     @staticmethod
     def generate_audio(text):
         tts = gTTS(text=text, lang='es')
-        audio_bytes = tts.get_audio()
-        b64 = base64.b64encode(audio_bytes).decode()
+        audio_bytes = io.BytesIO()
+        tts.write_to_fp(audio_bytes)
+        audio_bytes.seek(0)
+        b64 = base64.b64encode(audio_bytes.read()).decode()
         return f'data:audio/mp3;base64,{b64}'
 
 class LoteriaGame:
