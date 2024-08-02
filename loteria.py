@@ -4,11 +4,14 @@ from PIL import Image
 import os
 import pandas as pd
 import time
+from gtts import gTTS
+from io import BytesIO
+import base64
 
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
 
-# Estilos CSS
+# Estilos CSS adaptativos
 st.markdown("""
 <style>
     .stButton>button {
@@ -36,6 +39,18 @@ st.markdown("""
     @media (max-width: 768px) {
         .stButton>button {
             font-size: 1rem;
+        }
+    }
+    @media (prefers-color-scheme: dark) {
+        .stApp {
+            background-color: #1E1E1E;
+            color: white;
+        }
+    }
+    @media (prefers-color-scheme: light) {
+        .stApp {
+            background-color: white;
+            color: black;
         }
     }
 </style>
@@ -68,24 +83,6 @@ class LoteriaDeck:
 
     def draw_card(self):
         return self.cards.pop(0) if self.cards else None
-
-class LoteriaGame:
-    def __init__(self):
-        self.deck = LoteriaDeck()
-        self.current_card = None
-        self.called_cards = []
-
-    def start_new_game(self):
-        self.deck = LoteriaDeck()
-        self.current_card = None
-        self.called_cards = []
-
-    def call_next_card(self):
-        card = self.deck.draw_card()
-        if card:
-            self.current_card = card
-            self.called_cards.append(card)
-        return card
 
 class Timer:
     def __init__(self, duration):
@@ -120,11 +117,38 @@ class Timer:
     def is_finished(self):
         return self.get_remaining_time() <= 0
 
+class TTSEngine:
+    @staticmethod
+    def generate_audio(text):
+        tts = gTTS(text=text, lang='es')
+        fp = BytesIO()
+        tts.write_to_fp(fp)
+        return base64.b64encode(fp.getvalue()).decode()
+
+class LoteriaGame:
+    def __init__(self):
+        self.deck = LoteriaDeck()
+        self.current_card = None
+        self.called_cards = []
+
+    def start_new_game(self):
+        self.deck = LoteriaDeck()
+        self.current_card = None
+        self.called_cards = []
+
+    def call_next_card(self):
+        card = self.deck.draw_card()
+        if card:
+            self.current_card = card
+            self.called_cards.append(card)
+        return card
+
 class GameState:
     def __init__(self):
         self.game = LoteriaGame()
         self.timer = Timer(15)
         self.is_running = False
+        self.tts_engine = TTSEngine()
 
     def start_new_game(self):
         self.game.start_new_game()
@@ -140,13 +164,15 @@ class GameState:
         card = self.game.call_next_card()
         if card:
             self.timer.start()
+            return self.tts_engine.generate_audio(card.name)
         else:
             self.is_running = False
-        return card
+        return None
 
     def update(self):
         if self.is_running and not self.timer.is_paused and self.timer.is_finished():
-            self.call_next_card()
+            return self.call_next_card()
+        return None
 
     def pause_game(self):
         self.timer.pause()
@@ -229,8 +255,10 @@ def main():
         render_current_card()
         render_called_cards()
 
-    # Update game state
-    st.session_state.game_state.update()
+    # Update game state and play audio if necessary
+    audio_data = st.session_state.game_state.update()
+    if audio_data:
+        st.audio(audio_data, format='audio/mp3')
 
     # Rerun the app to update the timer
     if st.session_state.game_state.is_running:
