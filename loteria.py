@@ -3,11 +3,14 @@ import random
 from PIL import Image
 import io
 import base64
+import os
+import csv
+import pandas as pd
 
 class LoteriaCard:
-    def __init__(self, name, image_data):
+    def __init__(self, name, image_path):
         self.name = name
-        self.image_data = image_data
+        self.image_path = image_path
 
 class LoteriaDeck:
     def __init__(self):
@@ -15,22 +18,16 @@ class LoteriaDeck:
         self.shuffle()
 
     def load_cards(self):
-        # This is a placeholder. In a real implementation, you'd have actual card data.
-        return [
-            LoteriaCard("El gallo", self.generate_placeholder_image("El gallo")),
-            LoteriaCard("El diablito", self.generate_placeholder_image("El diablito")),
-            LoteriaCard("La dama", self.generate_placeholder_image("La dama")),
-            # Add more cards here...
-        ]
-
-    def generate_placeholder_image(self, text):
-        img = Image.new('RGB', (100, 150), color='white')
-        from PIL import ImageDraw
-        d = ImageDraw.Draw(img)
-        d.text((10,10), text, fill=(0,0,0))
-        buffered = io.BytesIO()
-        img.save(buffered, format="PNG")
-        return base64.b64encode(buffered.getvalue()).decode()
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        images_dir = os.path.join(current_dir, 'images')
+        csv_path = os.path.join(images_dir, 'loteria.csv')
+        
+        cards = []
+        df = pd.read_csv(csv_path)
+        for _, row in df.iterrows():
+            image_path = os.path.join(images_dir, row['filename'])
+            cards.append(LoteriaCard(row['label'], image_path))
+        return cards
 
     def shuffle(self):
         random.shuffle(self.cards)
@@ -67,12 +64,12 @@ def main():
     with col1:
         if st.button("Start New Game"):
             game.start_new_game()
-            st.experimental_rerun()
+            st.rerun()
 
         if st.button("Call Next Card"):
             card = game.call_next_card()
             if card:
-                st.image(io.BytesIO(base64.b64decode(card.image_data)), caption=card.name, width=200)
+                st.image(card.image_path, caption=card.name, width=200)
             else:
                 st.write("All cards have been called!")
 
@@ -90,7 +87,7 @@ def main():
             cols = st.columns(4)
             for i, card in enumerate(row):
                 with cols[i]:
-                    st.image(io.BytesIO(base64.b64decode(card.image_data)), caption=card.name, width=100)
+                    st.image(card.image_path, caption=card.name, width=100)
 
 if __name__ == "__main__":
     main()
