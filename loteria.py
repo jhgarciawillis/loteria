@@ -2,7 +2,38 @@ import streamlit as st
 import random
 from PIL import Image
 import io
-from loteriabackend import LoteriaCard, LoteriaDeck
+import base64
+
+class LoteriaCard:
+    def __init__(self, name, image_data):
+        self.name = name
+        self.image_data = image_data
+
+class LoteriaDeck:
+    def __init__(self):
+        self.cards = self.load_cards()
+        self.shuffle()
+
+    def load_cards(self):
+        # This is a placeholder. In a real implementation, you'd have actual card data.
+        return [
+            LoteriaCard("El gallo", self.generate_placeholder_image("El gallo")),
+            LoteriaCard("El diablito", self.generate_placeholder_image("El diablito")),
+            LoteriaCard("La dama", self.generate_placeholder_image("La dama")),
+            # Add more cards here...
+        ]
+
+    def generate_placeholder_image(self, text):
+        img = Image.new('RGB', (100, 150), color='white')
+        from PIL import ImageDraw
+        d = ImageDraw.Draw(img)
+        d.text((10,10), text, fill=(0,0,0))
+        buffered = io.BytesIO()
+        img.save(buffered, format="PNG")
+        return base64.b64encode(buffered.getvalue()).decode()
+
+    def shuffle(self):
+        random.shuffle(self.cards)
 
 class LoteriaGame:
     def __init__(self):
@@ -41,8 +72,7 @@ def main():
         if st.button("Call Next Card"):
             card = game.call_next_card()
             if card:
-                img = Image.open(io.BytesIO(card.image))
-                st.image(img, caption=card.name, width=200)
+                st.image(io.BytesIO(base64.b64decode(card.image_data)), caption=card.name, width=200)
             else:
                 st.write("All cards have been called!")
 
@@ -60,8 +90,7 @@ def main():
             cols = st.columns(4)
             for i, card in enumerate(row):
                 with cols[i]:
-                    img = Image.open(io.BytesIO(card.image))
-                    st.image(img, caption=card.name, width=100)
+                    st.image(io.BytesIO(base64.b64decode(card.image_data)), caption=card.name, width=100)
 
 if __name__ == "__main__":
     main()
