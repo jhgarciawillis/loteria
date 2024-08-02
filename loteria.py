@@ -8,21 +8,33 @@ import time
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
 
-# Estilos CSS para mejorar la apariencia y la compatibilidad móvil
+# Estilos CSS para mejorar la apariencia y la compatibilidad responsive
 st.markdown("""
 <style>
     .stButton>button {
-        font-size: 18px;
+        font-size: 1.2rem;
         font-weight: bold;
         height: 3em;
         width: 100%;
     }
     .stImage {
-        margin-bottom: 10px;
+        margin-bottom: 1rem;
     }
-    @media (max-width: 600px) {
+    .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 1rem;
+    }
+    .card-item {
+        text-align: center;
+    }
+    .card-item img {
+        max-width: 100%;
+        height: auto;
+    }
+    @media (max-width: 768px) {
         .stButton>button {
-            font-size: 14px;
+            font-size: 1rem;
         }
     }
 </style>
@@ -93,17 +105,8 @@ def main():
             st.session_state.timer_start = None
             st.rerun()
 
-        st.subheader("Temporizador")
-        col_minus, col_timer, col_plus = st.columns([1,2,1])
-        with col_minus:
-            if st.button("-"):
-                st.session_state.timer = max(5, st.session_state.timer - 5)
-        with col_timer:
-            st.session_state.timer = st.number_input("Segundos", min_value=5, value=st.session_state.timer, step=5)
-        with col_plus:
-            if st.button("+"):
-                st.session_state.timer = min(60, st.session_state.timer + 5)
-
+        st.subheader("Configuración")
+        st.session_state.timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=st.session_state.timer, step=5)
         st.session_state.auto_call = st.checkbox("Llamada automática", value=st.session_state.auto_call)
 
         if st.button("🎴 Llamar Siguiente Carta"):
@@ -141,15 +144,19 @@ def call_next_card():
         st.write("¡Todas las cartas han sido llamadas!")
 
 def display_called_cards():
-    cols = 4
-    rows = (len(st.session_state.game.called_cards) + cols - 1) // cols
-    grid = [st.session_state.game.called_cards[i:i+cols] for i in range(0, len(st.session_state.game.called_cards), cols)]
+    st.markdown('<div class="card-grid">', unsafe_allow_html=True)
+    for card in st.session_state.game.called_cards:
+        st.markdown(f'''
+        <div class="card-item">
+            <img src="data:image/png;base64,{base64_image(card.image_path)}" alt="{card.name}">
+            <p>{card.name}</p>
+        </div>
+        ''', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    for row in grid:
-        cols = st.columns(4)
-        for i, card in enumerate(row):
-            with cols[i]:
-                st.image(card.image_path, caption=card.name, use_column_width=True)
+def base64_image(image_path):
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode()
 
 if __name__ == "__main__":
     main()
