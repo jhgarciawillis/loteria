@@ -4,6 +4,7 @@ from PIL import Image
 import os
 import pandas as pd
 import time
+import base64
 
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
@@ -214,6 +215,17 @@ def render_game_controls():
     if new_timer != game_state.timer.duration:
         game_state.set_timer_duration(new_timer)
 
+def autoplay_audio(audio_path):
+    with open(audio_path, "rb") as f:
+        audio_bytes = f.read()
+    audio_base64 = base64.b64encode(audio_bytes).decode()
+    audio_html = f"""
+        <audio autoplay="true">
+            <source src="data:audio/mp3;base64,{audio_base64}" type="audio/mp3">
+        </audio>
+    """
+    st.markdown(audio_html, unsafe_allow_html=True)
+
 def render_current_card():
     game_state = st.session_state.game_state
     
@@ -226,8 +238,8 @@ def render_current_card():
         st.progress(remaining_time / game_state.timer.duration)
         st.text(f"Tiempo restante: {remaining_time:.1f}s")
 
-        # Play audio for the current card
-        st.audio(card.audio_path, format='audio/mp3')
+        # Autoplay audio for the current card
+        autoplay_audio(card.audio_path)
 
 def render_called_cards():
     game_state = st.session_state.game_state
