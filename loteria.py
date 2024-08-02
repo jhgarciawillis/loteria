@@ -8,7 +8,7 @@ import time
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
 
-# Estilos CSS para mejorar la apariencia y la compatibilidad responsive
+# Estilos CSS
 st.markdown("""
 <style>
     .stButton>button {
@@ -47,10 +47,10 @@ class LoteriaCard:
 
 class LoteriaDeck:
     def __init__(self):
-        self.cards = self.load_cards()
+        self.cards = self._load_cards()
         self.shuffle()
 
-    def load_cards(self):
+    def _load_cards(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         csv_path = os.path.join(current_dir, 'loteria.csv')
         images_dir = os.path.join(current_dir, 'imagenes')
@@ -65,6 +65,9 @@ class LoteriaDeck:
     def shuffle(self):
         random.shuffle(self.cards)
 
+    def draw_card(self):
+        return self.cards.pop(0) if self.cards else None
+
 class LoteriaGame:
     def __init__(self):
         self.deck = LoteriaDeck()
@@ -72,80 +75,94 @@ class LoteriaGame:
         self.called_cards = []
 
     def start_new_game(self):
-        self.deck.shuffle()
+        self.deck = LoteriaDeck()
         self.current_card = None
         self.called_cards = []
 
     def call_next_card(self):
-        if len(self.called_cards) < len(self.deck.cards):
-            self.current_card = self.deck.cards[len(self.called_cards)]
-            self.called_cards.append(self.current_card)
-            return self.current_card
-        return None
+        card = self.deck.draw_card()
+        if card:
+            self.current_card = card
+            self.called_cards.append(card)
+        return card
+
+class GameState:
+    def __init__(self):
+        self.game = LoteriaGame()
+        self.timer = 15
+        self.auto_call = False
+        self.timer_start = None
+
+    def start_new_game(self):
+        self.game.start_new_game()
+        self.timer_start = None
+
+    def call_next_card(self):
+        card = self.game.call_next_card()
+        if card:
+            self.timer_start = time.time()
+        return card
+
+    def should_auto_call(self):
+        if not self.auto_call or self.timer_start is None:
+            return False
+        elapsed = time.time() - self.timer_start
+        return elapsed >= self.timer
+
+def initialize_session_state():
+    if 'game_state' not in st.session_state:
+        st.session_state.game_state = GameState()
+
+def render_game_controls():
+    game_state = st.session_state.game_state
+    
+    st.subheader("Controles del Juego")
+    if st.button("🔄 Iniciar Nuevo Juego"):
+        game_state.start_new_game()
+        st.rerun()
+
+    st.subheader("Configuración")
+    game_state.timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=game_state.timer, step=1)
+    game_state.auto_call = st.checkbox("Llamada automática", value=game_state.auto_call)
+
+    if st.button("🎴 Llamar Siguiente Carta"):
+        game_state.call_next_card()
+        st.rerun()
+
+def render_current_card():
+    game_state = st.session_state.game_state
+    
+    st.subheader("Carta Actual")
+    if game_state.game.current_card:
+        card = game_state.game.current_card
+        st.image(card.image_path, caption=card.name, use_column_width=True)
+
+def render_called_cards():
+    game_state = st.session_state.game_state
+    
+    st.subheader("Cartas Llamadas")
+    st.markdown('<div class="card-grid">', unsafe_allow_html=True)
+    for card in game_state.game.called_cards:
+        st.image(card.image_path, caption=card.name, use_column_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 def main():
     st.title("🎭 Juego de Lotería")
-
-    if 'game' not in st.session_state:
-        st.session_state.game = LoteriaGame()
-    if 'timer' not in st.session_state:
-        st.session_state.timer = 15
-    if 'auto_call' not in st.session_state:
-        st.session_state.auto_call = False
-    if 'current_card' not in st.session_state:
-        st.session_state.current_card = None
-    if 'timer_start' not in st.session_state:
-        st.session_state.timer_start = None
-
-    game = st.session_state.game
+    initialize_session_state()
 
     col1, col2 = st.columns([1, 2])
 
     with col1:
-        st.subheader("Controles del Juego")
-        if st.button("🔄 Iniciar Nuevo Juego"):
-            game.start_new_game()
-            st.session_state.current_card = None
-            st.session_state.timer_start = None
-            st.rerun()
-
-        st.subheader("Configuración")
-        st.session_state.timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=st.session_state.timer, step=1)
-        st.session_state.auto_call = st.checkbox("Llamada automática", value=st.session_state.auto_call)
-
-        if st.button("🎴 Llamar Siguiente Carta"):
-            call_next_card()
+        render_game_controls()
 
     with col2:
-        st.subheader("Carta Actual")
-        if st.session_state.current_card:
-            card = st.session_state.current_card
-            st.image(card.image_path, caption=card.name, use_column_width=True)
+        render_current_card()
+        render_called_cards()
 
-            # Timer logic without visual display
-            if st.session_state.timer_start:
-                elapsed = time.time() - st.session_state.timer_start
-                remaining = max(0, st.session_state.timer - elapsed)
-                if remaining <= 0 and st.session_state.auto_call:
-                    call_next_card()
-
-        st.subheader("Cartas Llamadas")
-        display_called_cards()
-
-def call_next_card():
-    card = st.session_state.game.call_next_card()
-    if card:
-        st.session_state.current_card = card
-        st.session_state.timer_start = time.time()
+    # Check for auto-call
+    if st.session_state.game_state.should_auto_call():
+        st.session_state.game_state.call_next_card()
         st.rerun()
-    else:
-        st.write("¡Todas las cartas han sido llamadas!")
-
-def display_called_cards():
-    st.markdown('<div class="card-grid">', unsafe_allow_html=True)
-    for card in st.session_state.game.called_cards:
-        st.image(card.image_path, caption=card.name, use_column_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
