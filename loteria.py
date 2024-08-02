@@ -4,6 +4,7 @@ from PIL import Image
 import os
 import pandas as pd
 import time
+import base64
 
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
@@ -116,20 +117,14 @@ def main():
         st.subheader("Carta Actual")
         if st.session_state.current_card:
             card = st.session_state.current_card
-            col_image, col_timer = st.columns([3,1])
-            with col_image:
-                st.image(card.image_path, caption=card.name, use_column_width=True)
-            with col_timer:
-                if st.session_state.timer_start:
-                    elapsed = time.time() - st.session_state.timer_start
-                    remaining = max(0, st.session_state.timer - elapsed)
-                    st.metric("Tiempo", f"{remaining:.1f}s")
-                    if remaining > 0:
-                        st.progress(remaining / st.session_state.timer)
-                    else:
-                        st.warning("¡Tiempo terminado!")
-                        if st.session_state.auto_call:
-                            call_next_card()
+            st.image(card.image_path, caption=card.name, use_column_width=True)
+
+            # Timer logic without visual display
+            if st.session_state.timer_start:
+                elapsed = time.time() - st.session_state.timer_start
+                remaining = max(0, st.session_state.timer - elapsed)
+                if remaining <= 0 and st.session_state.auto_call:
+                    call_next_card()
 
         st.subheader("Cartas Llamadas")
         display_called_cards()
@@ -146,17 +141,8 @@ def call_next_card():
 def display_called_cards():
     st.markdown('<div class="card-grid">', unsafe_allow_html=True)
     for card in st.session_state.game.called_cards:
-        st.markdown(f'''
-        <div class="card-item">
-            <img src="data:image/png;base64,{base64_image(card.image_path)}" alt="{card.name}">
-            <p>{card.name}</p>
-        </div>
-        ''', unsafe_allow_html=True)
+        st.image(card.image_path, caption=card.name, use_column_width=True)
     st.markdown('</div>', unsafe_allow_html=True)
-
-def base64_image(image_path):
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode()
 
 if __name__ == "__main__":
     main()
