@@ -16,6 +16,7 @@ st.markdown("""
         font-weight: bold;
         height: 3em;
         width: 100%;
+        margin-bottom: 10px;
     }
     .stImage {
         margin-bottom: 1rem;
@@ -92,22 +93,37 @@ class GameState:
         self.timer = 15
         self.auto_call = False
         self.timer_start = None
+        self.is_paused = False
+        self.time_remaining = None
 
     def start_new_game(self):
         self.game.start_new_game()
         self.timer_start = None
+        self.is_paused = False
+        self.time_remaining = None
 
     def call_next_card(self):
         card = self.game.call_next_card()
         if card:
             self.timer_start = time.time()
+            self.time_remaining = self.timer
         return card
 
     def should_auto_call(self):
-        if not self.auto_call or self.timer_start is None:
+        if self.is_paused or not self.auto_call or self.timer_start is None:
             return False
         elapsed = time.time() - self.timer_start
         return elapsed >= self.timer
+
+    def pause_game(self):
+        if not self.is_paused and self.timer_start is not None:
+            self.time_remaining = max(0, self.timer - (time.time() - self.timer_start))
+            self.is_paused = True
+
+    def resume_game(self):
+        if self.is_paused:
+            self.timer_start = time.time() - (self.timer - self.time_remaining)
+            self.is_paused = False
 
 def initialize_session_state():
     if 'game_state' not in st.session_state:
@@ -117,17 +133,30 @@ def render_game_controls():
     game_state = st.session_state.game_state
     
     st.subheader("Controles del Juego")
-    if st.button("🔄 Iniciar Nuevo Juego"):
-        game_state.start_new_game()
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("🔄 Reiniciar Juego"):
+            game_state.start_new_game()
+            st.rerun()
+    
+    with col2:
+        if game_state.is_paused:
+            if st.button("▶️ Continuar"):
+                game_state.resume_game()
+                st.rerun()
+        else:
+            if st.button("⏸️ Pausar"):
+                game_state.pause_game()
+                st.rerun()
+
+    if st.button("🎴 Llamar Siguiente Carta"):
+        game_state.call_next_card()
         st.rerun()
 
     st.subheader("Configuración")
     game_state.timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=game_state.timer, step=1)
     game_state.auto_call = st.checkbox("Llamada automática", value=game_state.auto_call)
-
-    if st.button("🎴 Llamar Siguiente Carta"):
-        game_state.call_next_card()
-        st.rerun()
 
 def render_current_card():
     game_state = st.session_state.game_state
@@ -136,6 +165,16 @@ def render_current_card():
     if game_state.game.current_card:
         card = game_state.game.current_card
         st.image(card.image_path, caption=card.name, use_column_width=True)
+
+        if game_state.timer_start is not None:
+            if game_state.is_paused:
+                remaining = game_state.time_remaining
+            else:
+                elapsed = time.time() - game_state.timer_start
+                remaining = max(0, game_state.timer - elapsed)
+            
+            st.progress(remaining / game_state.timer)
+            st.text(f"Tiempo restante: {remaining:.1f}s")
 
 def render_called_cards():
     game_state = st.session_state.game_state
