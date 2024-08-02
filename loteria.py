@@ -4,8 +4,7 @@ from PIL import Image
 import os
 import pandas as pd
 import time
-import pyttsx3
-import threading
+import pygame
 
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
@@ -56,9 +55,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 class LoteriaCard:
-    def __init__(self, name, image_path):
+    def __init__(self, name, image_path, audio_path):
         self.name = name
         self.image_path = image_path
+        self.audio_path = audio_path
 
 class LoteriaDeck:
     def __init__(self):
@@ -69,12 +69,15 @@ class LoteriaDeck:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         csv_path = os.path.join(current_dir, 'loteria.csv')
         images_dir = os.path.join(current_dir, 'imagenes')
+        audios_dir = os.path.join(current_dir, 'audios')
         
         cards = []
         df = pd.read_csv(csv_path)
-        for _, row in df.iterrows():
+        for index, row in df.iterrows():
             image_path = os.path.join(images_dir, row['filename'])
-            cards.append(LoteriaCard(row['label'], image_path))
+            audio_filename = f"{index + 1:02d}_{row['label'].lower().replace(' ', '_')}.mp3"
+            audio_path = os.path.join(audios_dir, audio_filename)
+            cards.append(LoteriaCard(row['label'], image_path, audio_path))
         return cards
 
     def shuffle(self):
@@ -177,10 +180,9 @@ class GameState:
 def initialize_session_state():
     if 'game_state' not in st.session_state:
         st.session_state.game_state = GameState()
-    if 'tts_engine' not in st.session_state:
-        st.session_state.tts_engine = pyttsx3.init()
-        st.session_state.tts_engine.setProperty('rate', 150)
-        st.session_state.tts_engine.setProperty('voice', 'spanish')
+    if 'audio' not in st.session_state:
+        pygame.mixer.init()
+        st.session_state.audio = pygame.mixer.Sound
 
 def render_game_controls():
     game_state = st.session_state.game_state
@@ -216,13 +218,9 @@ def render_game_controls():
     if new_timer != game_state.timer.duration:
         game_state.set_timer_duration(new_timer)
 
-def text_to_speech(text):
-    def speak():
-        st.session_state.tts_engine.say(text)
-        st.session_state.tts_engine.runAndWait()
-    
-    thread = threading.Thread(target=speak)
-    thread.start()
+def play_audio(audio_path):
+    sound = st.session_state.audio(audio_path)
+    sound.play()
 
 def render_current_card():
     game_state = st.session_state.game_state
@@ -236,8 +234,8 @@ def render_current_card():
         st.progress(remaining_time / game_state.timer.duration)
         st.text(f"Tiempo restante: {remaining_time:.1f}s")
 
-        # Generate speech for the current card
-        text_to_speech(card.name)
+        # Play audio for the current card
+        play_audio(card.audio_path)
 
 def render_called_cards():
     game_state = st.session_state.game_state
