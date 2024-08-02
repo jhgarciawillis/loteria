@@ -91,26 +91,35 @@ class GameState:
     def __init__(self):
         self.game = LoteriaGame()
         self.timer = 15
-        self.auto_call = False
+        self.auto_call = True
         self.timer_start = None
         self.is_paused = False
         self.time_remaining = None
+        self.is_running = False
 
     def start_new_game(self):
         self.game.start_new_game()
         self.timer_start = None
         self.is_paused = False
         self.time_remaining = None
+        self.is_running = False
+
+    def start_game(self):
+        if not self.is_running:
+            self.is_running = True
+            self.call_next_card()
 
     def call_next_card(self):
         card = self.game.call_next_card()
         if card:
             self.timer_start = time.time()
             self.time_remaining = self.timer
+        else:
+            self.is_running = False
         return card
 
-    def should_auto_call(self):
-        if self.is_paused or not self.auto_call or self.timer_start is None:
+    def should_call_next(self):
+        if self.is_paused or not self.is_running or self.timer_start is None:
             return False
         elapsed = time.time() - self.timer_start
         return elapsed >= self.timer
@@ -134,12 +143,14 @@ def initialize_session_state():
             st.session_state.game_state.is_paused = False
         if not hasattr(st.session_state.game_state, 'time_remaining'):
             st.session_state.game_state.time_remaining = None
+        if not hasattr(st.session_state.game_state, 'is_running'):
+            st.session_state.game_state.is_running = False
 
 def render_game_controls():
     game_state = st.session_state.game_state
     
     st.subheader("Controles del Juego")
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     
     with col1:
         if st.button("🔄 Reiniciar Juego"):
@@ -156,13 +167,14 @@ def render_game_controls():
                 game_state.pause_game()
                 st.rerun()
 
-    if st.button("🎴 Llamar Siguiente Carta"):
-        game_state.call_next_card()
-        st.rerun()
+    with col3:
+        if not game_state.is_running:
+            if st.button("▶️ Comenzar"):
+                game_state.start_game()
+                st.rerun()
 
     st.subheader("Configuración")
     game_state.timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=game_state.timer, step=1)
-    game_state.auto_call = st.checkbox("Llamada automática", value=game_state.auto_call)
 
 def render_current_card():
     game_state = st.session_state.game_state
@@ -205,7 +217,7 @@ def main():
         render_called_cards()
 
     # Check for auto-call
-    if st.session_state.game_state.should_auto_call():
+    if st.session_state.game_state.should_call_next():
         st.session_state.game_state.call_next_card()
         st.rerun()
 
