@@ -4,8 +4,11 @@ from PIL import Image
 import os
 import pandas as pd
 import time
+from gtts import gTTS
+from io import BytesIO
+import base64
 
-# Configuración de la página (moved to the top)
+# Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
 
 # Estilos CSS adaptativos
@@ -210,6 +213,21 @@ def render_game_controls():
     if new_timer != game_state.timer.duration:
         game_state.set_timer_duration(new_timer)
 
+def text_to_speech(text):
+    tts = gTTS(text=text, lang='es')
+    fp = BytesIO()
+    tts.write_to_fp(fp)
+    return fp.getvalue()
+
+def autoplay_audio(audio_data):
+    b64 = base64.b64encode(audio_data).decode()
+    md = f"""
+        <audio autoplay="true">
+        <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+        </audio>
+        """
+    st.markdown(md, unsafe_allow_html=True)
+
 def render_current_card():
     game_state = st.session_state.game_state
     
@@ -221,6 +239,10 @@ def render_current_card():
         remaining_time = game_state.timer.get_remaining_time()
         st.progress(remaining_time / game_state.timer.duration)
         st.text(f"Tiempo restante: {remaining_time:.1f}s")
+
+        # Generate and play audio for the current card
+        audio_data = text_to_speech(card.name)
+        autoplay_audio(audio_data)
 
 def render_called_cards():
     game_state = st.session_state.game_state
