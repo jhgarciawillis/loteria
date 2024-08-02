@@ -386,10 +386,9 @@ class GameState:
         card = self.game.call_next_card()
         if card:
             self.timer.start()
-            return card
         else:
             self.is_running = False
-        return None
+        return card
 
     def update(self):
         if self.is_running and not self.timer.is_paused and self.timer.is_finished():
