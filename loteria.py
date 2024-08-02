@@ -4,6 +4,8 @@ from PIL import Image
 import os
 import pandas as pd
 import time
+from gtts import gTTS
+import base64
 
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
@@ -114,6 +116,14 @@ class Timer:
     def is_finished(self):
         return self.get_remaining_time() <= 0
 
+class TTSEngine:
+    @staticmethod
+    def generate_audio(text):
+        tts = gTTS(text=text, lang='es')
+        audio_bytes = tts.get_audio()
+        b64 = base64.b64encode(audio_bytes).decode()
+        return f'data:audio/mp3;base64,{b64}'
+
 class LoteriaGame:
     def __init__(self):
         self.deck = LoteriaDeck()
@@ -137,6 +147,7 @@ class GameState:
         self.game = LoteriaGame()
         self.timer = Timer(15)
         self.is_running = False
+        self.tts_engine = TTSEngine()
 
     def start_new_game(self):
         self.game.start_new_game()
@@ -146,20 +157,21 @@ class GameState:
     def start_game(self):
         if not self.is_running:
             self.is_running = True
-            self.call_next_card()
+            return self.call_next_card()
 
     def call_next_card(self):
         card = self.game.call_next_card()
         if card:
             self.timer.start()
+            return card, self.tts_engine.generate_audio(card.name)
         else:
             self.is_running = False
-        return card
+        return None, None
 
     def update(self):
         if self.is_running and not self.timer.is_paused and self.timer.is_finished():
             return self.call_next_card()
-        return None
+        return None, None
 
     def pause_game(self):
         self.timer.pause()
@@ -200,7 +212,9 @@ def render_game_controls():
     with col3:
         if not game_state.is_running:
             if st.button("▶️ Comenzar"):
-                game_state.start_game()
+                card, audio = game_state.start_game()
+                if card and audio:
+                    st.markdown(f'<audio autoplay><source src="{audio}" type="audio/mp3"></audio>', unsafe_allow_html=True)
                 st.rerun()
 
     st.subheader("Configuración")
@@ -242,10 +256,11 @@ def main():
         render_current_card()
         render_called_cards()
 
-    # Update game state and display new card if necessary
-    new_card = st.session_state.game_state.update()
-    if new_card:
-        st.success(f"¡Nueva carta llamada: {new_card.name}!")
+    # Update game state and play audio if necessary
+    card, audio = st.session_state.game_state.update()
+    if card and audio:
+        st.markdown(f'<audio autoplay><source src="{audio}" type="audio/mp3"></audio>', unsafe_allow_html=True)
+        st.success(f"¡Nueva carta llamada: {card.name}!")
 
     # Rerun the app to update the timer
     if st.session_state.game_state.is_running:
