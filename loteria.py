@@ -214,7 +214,7 @@ def render_game_controls():
                 st.rerun()
 
     st.subheader("Configuración")
-    new_timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=int(game_state.timer.duration), step=1)
+    new_timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=30, value=int(game_state.timer.duration), step=1)
     if new_timer != game_state.timer.duration:
         game_state.set_timer_duration(new_timer)
 
