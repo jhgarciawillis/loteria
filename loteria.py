@@ -1,10 +1,7 @@
 import streamlit as st
 import random
 from PIL import Image
-import io
-import base64
 import os
-import csv
 import pandas as pd
 
 class LoteriaCard:
@@ -19,8 +16,8 @@ class LoteriaDeck:
 
     def load_cards(self):
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        images_dir = os.path.join(current_dir, 'images')
-        csv_path = os.path.join(images_dir, 'loteria.csv')
+        csv_path = os.path.join(current_dir, 'loteria.csv')
+        images_dir = os.path.join(current_dir, 'imagenes')
         
         cards = []
         df = pd.read_csv(csv_path)
