@@ -4,7 +4,6 @@ from PIL import Image
 import os
 import pandas as pd
 import time
-import pygame
 
 # Configuración de la página
 st.set_page_config(page_title="Juego de Lotería", layout="wide")
@@ -180,9 +179,6 @@ class GameState:
 def initialize_session_state():
     if 'game_state' not in st.session_state:
         st.session_state.game_state = GameState()
-    if 'audio' not in st.session_state:
-        pygame.mixer.init()
-        st.session_state.audio = pygame.mixer.Sound
 
 def render_game_controls():
     game_state = st.session_state.game_state
@@ -214,13 +210,9 @@ def render_game_controls():
                 st.rerun()
 
     st.subheader("Configuración")
-    new_timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=30, value=int(game_state.timer.duration), step=1)
+    new_timer = st.slider("Tiempo por carta (segundos)", min_value=5, max_value=60, value=int(game_state.timer.duration), step=1)
     if new_timer != game_state.timer.duration:
         game_state.set_timer_duration(new_timer)
-
-def play_audio(audio_path):
-    sound = st.session_state.audio(audio_path)
-    sound.play()
 
 def render_current_card():
     game_state = st.session_state.game_state
@@ -235,7 +227,7 @@ def render_current_card():
         st.text(f"Tiempo restante: {remaining_time:.1f}s")
 
         # Play audio for the current card
-        play_audio(card.audio_path)
+        st.audio(card.audio_path, format='audio/mp3')
 
 def render_called_cards():
     game_state = st.session_state.game_state
